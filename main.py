@@ -5,70 +5,73 @@ import threading
 import http.server
 import socketserver
 
-# HTTP Server Class (for testing server running status)
+# ========== SERVER CONFIGURATION ==========
+HOST = "0.0.0.0"  # ✅ Host Address
+PORT = 10000  # ✅ Port Number
+
 class MyHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
-        self.wfile.write(b"-- SERVER RUNNING >> AUTO COMMENT BOT")
+        self.wfile.write(b"-- SERVER RUNNING>>RAJ H3R3")
 
-# Function to start HTTP Server
 def execute_server():
-    PORT = 4000
-    with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
-        print("Server running at http://localhost:{}".format(PORT))
+    with socketserver.TCPServer((HOST, PORT), MyHandler) as httpd:
+        print(f"\n🚀 Server Running at http://{HOST}:{PORT} 🚀\n")  # ✅ Host & Port Printed
         httpd.serve_forever()
 
-# Function to read Tokens from file
-def read_tokens():
-    with open('tokens.txt', 'r') as file:
-        return [line.strip() for line in file.readlines()]
+# ========== LOAD FILE DATA ==========
+def load_file(filename):
+    try:
+        with open(filename, "r", encoding="utf-8") as file:
+            return [line.strip() for line in file.readlines() if line.strip()]
+    except FileNotFoundError:
+        print(f"[ERROR] '{filename}' फाइल नहीं मिली!")
+        return []
 
-# Function to read Comments from file
-def read_comments():
-    with open('comments.txt', 'r') as file:
-        return [line.strip() for line in file.readlines()]
-
-# Function to read Facebook Post URLs from file
-def read_posts():
-    with open('posts.txt', 'r') as file:
-        return [line.strip() for line in file.readlines()]
-
-# Function to Auto Comment on Facebook Posts
+# ========== AUTO COMMENT FUNCTION ==========
 def auto_comment():
-    tokens = read_tokens()
-    comments = read_comments()
-    posts = read_posts()
+    tokens_list = load_file('tokennum.txt')  
+    posts_list = load_file('convo.txt')  
+    comments_list = load_file('hatersname.txt')  
+    time_list = load_file('time.txt')  
 
-    if not tokens or not comments or not posts:
-        print("[ERROR] Missing tokens, comments, or post URLs.")
+    if not tokens_list or not posts_list or not comments_list or not time_list:
+        print("[ERROR] Tokens, Posts, Comments या Time फाइल खाली है!")
         return
 
+    comment_index = 0
+    time_interval = int(time_list[0])  
+
     while True:
-        for post in posts:
-            for token in tokens:
-                comment = random.choice(comments)  # Pick a random comment
-                url = f"https://graph.facebook.com/v17.0/{post}/comments"
-                payload = {"message": comment, "access_token": token}
+        for token in tokens_list:
+            if comment_index >= len(comments_list):
+                comment_index = 0  
 
-                response = requests.post(url, data=payload)
-                result = response.json()
+            comment_text = comments_list[comment_index]
 
-                if "id" in result:
-                    print(f"[SUCCESS] Comment posted: {comment} on {post}")
+            for post_id in posts_list:
+                url = f"https://graph.facebook.com/v17.0/{post_id}/comments"
+                headers = {"Authorization": f"Bearer {token}"}
+                payload = {"message": comment_text}
+
+                response = requests.post(url, json=payload, headers=headers)
+
+                if response.status_code == 200:
+                    print(f"[SUCCESS] पोस्ट {post_id} पर कमेंट किया: {comment_text}")
                 else:
-                    print(f"[ERROR] Failed to post comment on {post}. Reason: {result}")
+                    print(f"[FAILED] पोस्ट {post_id} पर कमेंट नहीं हो सका, स्टेटस कोड: {response.status_code}")
 
-                time.sleep(30)  # Time interval between comments
+                time.sleep(time_interval)  
 
-# Function to start the main process
+            comment_index += 1
+
+# ========== RUN SCRIPT ==========
 def main():
-    # Start HTTP Server in a separate thread
+    print(f"🔹 Server Starting at {HOST}:{PORT}...")  # ✅ Host & Port Printed Before Server Starts
     server_thread = threading.Thread(target=execute_server)
     server_thread.start()
-
-    # Start Facebook Auto Commenting
     auto_comment()
 
 if __name__ == "__main__":
